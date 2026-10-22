@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment / secrets
+.env
+.kaggle/
+kaggle.json
+access_token
+
+# OS junk
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Dataset lokal
+dataset/
+
+# Hasil download/cache (tidak usah di-commit)
+*.zip
+*.csv.gz
