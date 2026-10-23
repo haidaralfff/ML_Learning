@@ -236,10 +236,26 @@ $$\text{RMSE} = \sqrt{\frac{1}{20}\sum_{i=1}^{20}(y_i - \hat{y}_i)^2} = \sqrt{\f
 
 ### 3.6 Analisis hasil (20 data vs 10.000 data)
 
-1. **Overfitting pada 20 data.** Akurasi 100% & RMSE 0 terlihat sempurna, tapi itu diukur pada data yang sama dipakai latih (resubstitution). Pohon "hafal" data — contoh: semua Returns diprediksi puas hanya karena pada 20 baris itu belum ada yang komplain. Generalisasi ke data baru tidak terjamin.
-2. **Data tidak seimbang.** 18/20 (90%) berlabel puas. Pohon yang selalu menjawab "puas" saja sudah dapat akurasi 90% pada data ini, jadi metrik akurasi menipu; perlu dilihat juga RMSE dan kasus kelas minoritas.
-3. **Dengan 10.000 data** pohon menjadi jauh lebih besar (352 daun) tetapi diuji dengan split 80/20: akurasi uji **82,05%** dan RMSE **0,4237** — angka yang jujur karena data uji belum pernah dilihat pohon.
-4. **Kesimpulan perbandingan:** makin banyak data, akurasi *resubstitution* turun (dari 100% di 20 data menjadi 82,05% di data uji 2.000), namun hasilnya lebih dipercaya. Inilah gunanya langkah pengujian train/test pada soal no. 1.
+**a. Akurasi 100% & RMSE 0 = overfitting, bukan prestasi.**
+Kedua metrik itu diukur dengan **resubstitution** — data yang dilatih dan diprediksi ulang adalah 20 data yang **sama**. Pohon jadi "menghafal" data, bukan benar-benar belajar pola yang general. Generalisasi ke data baru tidak terjamin.
+
+**b. Kelas tidak seimbang membuat akurasi menipu.**
+18/20 (90%) berlabel puas. Pohon yang **selalu menjawab "puas"** saja (tanpa melihat fitur apa pun) sudah memberi akurasi $18/20 = 90\%$. Artinya akurasi 100% di sini hanya ~10% lebih baik dari baseline bodoh — tidak sehebat kelihatannya. Perlu dilihat juga RMSE dan perilaku pada kelas minoritas (tidak puas).
+
+**c. Kenapa pohon kecil & subset murni.**
+Gain terbesar `category` = 0,2690. Subset Product Queries (3), Returns (8), Shopzilla Related (3), dan Cancellation (2) semuanya **murni puas** → langsung menjadi leaf `1`. Hanya `Order Related` (4 data, label campur) yang perlu dicabangi `Agent Shift`.
+Artinya: pada 20 baris itu kategori Returns/Shopzilla/Product Queries **belum ada yang komplain**, sehingga pohon menggeneralisasi "Returns = selalu puas". Suatu asumsi yang rapuh — di data besar bisa jadi ada Returns yang tidak puas.
+
+**d. Dengan 10.000 data** pohon menjadi jauh lebih besar (352 daun) tetapi diuji dengan split 80/20: akurasi uji **82,05%** dan RMSE **0,4237** — angka yang jujur karena data uji belum pernah dilihat pohon.
+
+| | 20 data | 10.000 data (uji 2.000) |
+|---|---|---|
+| Akurasi | 100% (resubstitution) | **82,05%** (data uji) |
+| RMSE | 0 | **0,4237** |
+| Sifat hasil | overfit, menghafal | jujur, generalizable |
+
+**e. Kesimpulan perbandingan.**
+Akurasi **turun** drastis (100% → 82,05%) saat data dinaikkan dan memakai data uji terpisah. Ini normal dan justru menandakan evaluasi sudah benar. **Angka 100% itu menyesatkan (overfitting); angka 82% itu jujur.** Inilah gunanya langkah pengujian train/test pada soal no. 1 — tanpa split, kita akan menyangka model sudah sempurna padahal tidak.
 
 ---
 
@@ -247,4 +263,6 @@ $$\text{RMSE} = \sqrt{\frac{1}{20}\sum_{i=1}^{20}(y_i - \hat{y}_i)^2} = \sqrt{\f
 
 1. Decision tree ID3 dari scratch berhasil dilatih pada data Kaggle 10.000 baris; hasil pengujian 80/20: **akurasi 82,05%, RMSE 0,4237** (sedikit lebih baik dari baseline 81,19%).
 2. Data dinaikkan dari 20 baris (cuaca) menjadi **10.000 baris** dataset layanan pelanggan e-commerce via API Kaggle (`kagglehub`).
-3. Perhitungan manual pada 20 data dengan rumus entropy & information gain (entropy 0,4690; gain `category` 0,2690 sebagai akar) menghasilkan pohon kecil yang **overfit** (akurasi resubstitution 100%, RMSE 0) — menunjukkan pentingnya evaluasi pada data terpisah.
+3. Perhitungan manual pada 20 data (entropy 0,4690; gain `category` 0,2690 sebagai akar) menghasilkan pohon kecil yang **overfit** — akurasi resubstitution 100% & RMSE 0 hanya karena data latih = data uji.
+4. Kelas 20 data tidak seimbang (90% puas), sehingga akurasi 100% hanya ~10% lebih baik dari baseline "selalu puas" (90%) — metrik akurasi pada sampel kecil menipu.
+5. Akurasi jatuh dari 100% (20 data) ke 82,05% (data uji 2.000) saat evaluasi dilakukan dengan split terpisah. **Angka 100% itu menyesatkan; angka 82% itu jujur** — bukti pentingnya train/test split agar hasil evaluasi bisa dipercaya.
