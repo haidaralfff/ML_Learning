@@ -2,6 +2,8 @@
 
 Notebook: `notebook/desiciontree.ipynb`
 
+---
+
 ## Dataset
 
 Dataset diambil dari Kaggle lewat API (`kagglehub`):
@@ -85,7 +87,48 @@ Catatan: karena kelas tidak seimbang (81% puas), **baseline** "tebak semua puas"
 
 ---
 
-## 2. Penggunaan data lain dengan jumlah lebih banyak (min. 100)
+## 2. Visualisasi Diagnostik Masalah Model & Indikasi Overfitting
+
+Untuk membuktikan secara visual akar permasalahan dari model Decision Tree pada dataset ini, telah ditambahkan **Plot Diagnostik 4 Panel** pada notebook:
+
+1. **Panel 1: Ketimpangan Kelas (*Class Imbalance*)**
+   - Menampilkan perbandingan ekstrem antara pelanggan **Puas (81,2%)** vs **Tidak Puas (18,8%)**.
+   - Garis horizontal putus-putus memperlihatkan batas **Baseline Akurasi (81,2%)**. Ini membuktikan secara visual bahwa akurasi 82% yang dicapai model bukanlah prestasi spektakuler, melainkan akibat dari model yang terbias menebak kelas mayoritas.
+
+2. **Panel 2: Peringkat Information Gain Fitur**
+   - Menggambarkan seberapa besar informasi yang disumbangkan oleh masing-masing fitur:
+     - `category` memiliki Information Gain tertinggi (~0,027 bit) sehingga konsisten terpilih sebagai simpul akar (*root node*).
+     - `channel_name`, `Tenure Bucket`, dan `Agent Shift` memiliki gain sangat rendah (< 0,005 bit). Ini menjelaskan mengapa pohon sulit memecah kelas secara murni tanpa menghafal kombinasi langka.
+
+3. **Panel 3: Heatmap Confusion Matrix pada Data Uji**
+   - Memperlihatkan bahwa dari 2.000 data uji:
+     - Kelas Puas (1) mayoritas tertebak dengan benar (>1.600 sampel).
+     - Kelas Tidak Puas (0) sebagian besar gagal dideteksi dan salah ditebak sebagai Puas karena pohon terlalu terdominasi oleh kelas mayoritas.
+
+4. **Panel 4: Kurva Kompleksitas Daun vs Akurasi Uji (*Bukti Kuat Overfitting*)**
+   - Menguji pertumbuhan pohon dari `max_depth = 1` (3 daun), `depth = 2` (11 daun), `depth = 3` (33 daun), `depth = 4` (88 daun) hingga **Pohon Penuh / Unpruned (330–352 daun)**.
+   - **Temuan Kunci:** Akurasi data uji tetap mendatar pada kisaran **81,5% – 82,0%**.
+   - **Kesimpulan Overfitting:** Menumbuhkan pohon hingga 352 daun sama sekali tidak meningkatkan performa generalisasi data uji. Ratusan daun tersebut murni menghafal data pencilan (*noise*). Oleh karena itu, penerapan **Pre-Pruning (`max_depth = 3` atau `4`)** adalah solusi yang paling tepat untuk memangkas kompleksitas tanpa mengorbankan akurasi.
+
+### 2.1 Deteksi & Analisis Outlier Data
+
+Pemeriksaan data pencilan (*outlier*) dilakukan menggunakan metode statistik **Interquartile Range (IQR / Tukey's Rule)** dan analisis sebaran frekuensi:
+
+1. **Outlier Target (CSAT Score) — 1.576 Sampel (15,76%):**
+   - $Q_1 = 4,0$, $Q_3 = 5,0$, $IQR = 1,0$.
+   - Batas Bawah IQR = $Q_1 - 1,5 \times IQR = 4,0 - 1,5 = \mathbf{2,5}$.
+   - Seluruh pelanggan yang memberi **Skor 1 (1.433 sampel)** dan **Skor 2 (143 sampel)** secara matematis berstatus **pencilan bawah (*low outliers*)**. Hal ini menjelaskan mengapa pohon mengabaikan pelanggan komplain karena sebaran data terpusat di skor 4 dan 5 (81,2%).
+
+2. **Outlier Frekuensi (*Rare Category Outliers* pada `category`):**
+   - Ditemukan 4 kategori dengan sampel sangat langka (<100 sampel): *Offers & Cashback* (78), *App/website* (17), *Others* (10), dan *Onboarding related* (hanya 4 sampel).
+   - Kategori-kategori ini menyebabkan algoritma ID3 membuat cabang-cabang kerdil yang memicu pembengkakan daun (*overfitting*).
+
+3. **Outlier Fitur Numerik (`Item_price`):**
+   - Median harga barang adalah Rp 1.016 dengan batas atas IQR Rp 11.103. Terdapat 96 sampel pencilan ekstrem dengan harga melonjak hingga Rp 108.490.
+
+---
+
+## 3. Penggunaan data lain dengan jumlah lebih banyak (min. 100)
 
 - Tugas praktikum sebelumnya memakai dataset cuaca/play-tennis lokal dengan **20 baris**.
 - Pada laporan ini data diganti ke dataset Kaggle lain (**eCommerce Customer Service Satisfaction**) dan jumlahnya dinaikkan menjadi **10.000 baris** (jauh melebihi minimum 100).
@@ -94,11 +137,11 @@ Catatan: karena kelas tidak seimbang (81% puas), **baseline** "tebak semua puas"
 
 ---
 
-## 3. Perhitungan manual dengan 20 data
+## 4. Perhitungan manual dengan 20 data
 
 Soal 3 dikerjakan **secara manual di laporan ini** (tanpa cell program terpisah), memakai 20 baris pertama dari data yang sama. Semua hasil di bawah sudah diverifikasi dengan perhitungan program `entropy()` dan `gain()`.
 
-### 3.1 Data yang dipakai (20 baris pertama)
+### 4.1 Data yang dipakai (20 baris pertama)
 
 | # | channel | category | tenure | shift | Puas |
 |---|---|---|---|---|---|
@@ -125,13 +168,13 @@ Soal 3 dikerjakan **secara manual di laporan ini** (tanpa cell program terpisah)
 
 Jumlah: **Puas ($n_1$) = 18, Tidak Puas ($n_0$) = 2, $n = 20$**.
 
-### 3.2 Entropy awal (manual)
+### 4.2 Entropy awal (manual)
 
 $$H(S) = -\frac{18}{20}\log_2\frac{18}{20} - \frac{2}{20}\log_2\frac{2}{20}$$
 $$= -(0,9)\log_2(0,9) - (0,1)\log_2(0,1)$$
 $$= -(0,9)(-0,1520) - (0,1)(-3,3219) = 0,1368 + 0,3322 = \mathbf{0,4690}$$
 
-### 3.3 Information gain tiap fitur (manual)
+### 4.3 Information gain tiap fitur (manual)
 
 Pakai rumus $\text{Gain}(S, A) = H(S) - \sum_v \frac{|S_v|}{20} H(S_v)$.
 
@@ -201,68 +244,60 @@ $$\text{gain} = 0,4690 - 0,4249 = \mathbf{0,0441}$$
 | Tenure Bucket | 0,0814 |
 | channel_name | 0,0441 |
 
-### 3.4 Pohon hasil (20 data)
+### 4.4 Pembentukan Pohon 20 Data
 
-Gain terbesar = `category` (0,2690) → jadi akar pohon. Subset `Order Related` (4 data, label campur) masih dicabangi `Agent Shift`. Di subset itu gain `Agent Shift` = 1,0 (split sempurna): Evening→[1,1], Morning→[0], Split→[0]. Subset lain sudah murni → leaf.
+Akar: **category**.
+- Cancellation (2) → daun **1** (2 data murni)
+- Product Queries (9) → daun **1** (3 data murni)
+- Returns (11) → daun **1** (8 data murni)
+- Shopzilla Related (12) → daun **1** (3 data murni)
+- Order Related (6) → 4 data (2 puas, 2 tidak) → dicabangi fitur terbaik berikutnya: **Agent Shift**:
+  - Evening (2) → daun **1** (P3, P20)
+  - Morning (3) → daun **0** (P18)
+  - Split (5) → daun **0** (P12)
 
-```
-                        category
-       ┌──────────┬─────────┼──────────┬──────────────┐
-  Cancellation  Order Rel.  Product Q  Returns   Shopzilla
-       1(puas)      │           1        1          1
-                    └─ Agent Shift
-                    ├─ Evening  → 1 (puas)
-                    ├─ Morning  → 0 (tidak puas)
-                    └─ Split    → 0 (tidak puas)
-```
+Total: **5 cabang dari akar, menghasilkan 7 daun**.
 
-Notasi Python: `{category: {2: 1, 6: {shift: {2: 1, 3: 0, 5: 0}}, 9: 1, 11: 1, 12: 1}}`.
+### 4.5 Analisis Hasil (20 data vs 10.000 data)
 
-### 3.5 Pengujian ulang pada 20 data (resubstitution)
-
-Semua 20 data dilatih lalu diprediksi ulang dengan pohon di atas (telusur sesuai rumus no. 3).
-
-| Data ke- | Sebenarnya | Jalur prediksi | Prediksi |
-|---|---|---|---|
-| 12 | 0 | category Order Related → shift Morning | 0 ✓ |
-| 18 | 0 | category Order Related → shift Morning | 0 ✓ |
-| 1–11, 13–17, 19–20 | 1 | cabang murni "1" (atau Order Related → Evening) | 1 ✓ |
-
-- Jumlah benar: 20/20
-
-$$\text{Akurasi} = \frac{20}{20} = 1{,}0000 \;(100\%)$$
-
-$$\text{RMSE} = \sqrt{\frac{1}{20}\sum_{i=1}^{20}(y_i - \hat{y}_i)^2} = \sqrt{\frac{0}{20}} = \mathbf{0,0000}$$
-
-### 3.6 Analisis hasil (20 data vs 10.000 data)
-
-**a. Akurasi 100% & RMSE 0 = overfitting, bukan prestasi.**
-Kedua metrik itu diukur dengan **resubstitution** — data yang dilatih dan diprediksi ulang adalah 20 data yang **sama**. Pohon jadi "menghafal" data, bukan benar-benar belajar pola yang general. Generalisasi ke data baru tidak terjamin.
-
-**b. Kelas tidak seimbang membuat akurasi menipu.**
-18/20 (90%) berlabel puas. Pohon yang **selalu menjawab "puas"** saja (tanpa melihat fitur apa pun) sudah memberi akurasi $18/20 = 90\%$. Artinya akurasi 100% di sini hanya ~10% lebih baik dari baseline bodoh — tidak sehebat kelihatannya. Perlu dilihat juga RMSE dan perilaku pada kelas minoritas (tidak puas).
-
-**c. Kenapa pohon kecil & subset murni.**
-Gain terbesar `category` = 0,2690. Subset Product Queries (3), Returns (8), Shopzilla Related (3), dan Cancellation (2) semuanya **murni puas** → langsung menjadi leaf `1`. Hanya `Order Related` (4 data, label campur) yang perlu dicabangi `Agent Shift`.
-Artinya: pada 20 baris itu kategori Returns/Shopzilla/Product Queries **belum ada yang komplain**, sehingga pohon menggeneralisasi "Returns = selalu puas". Suatu asumsi yang rapuh — di data besar bisa jadi ada Returns yang tidak puas.
-
-**d. Dengan 10.000 data** pohon menjadi jauh lebih besar (352 daun) tetapi diuji dengan split 80/20: akurasi uji **82,05%** dan RMSE **0,4237** — angka yang jujur karena data uji belum pernah dilihat pohon.
-
-| | 20 data | 10.000 data (uji 2.000) |
+| Parameter | 20 Data Pertama (Manual) | 10.000 Data (Data Uji 2.000) |
 |---|---|---|
-| Akurasi | 100% (resubstitution) | **82,05%** (data uji) |
-| RMSE | 0 | **0,4237** |
-| Sifat hasil | overfit, menghafal | jujur, generalizable |
-
-**e. Kesimpulan perbandingan.**
-Akurasi **turun** drastis (100% → 82,05%) saat data dinaikkan dan memakai data uji terpisah. Ini normal dan justru menandakan evaluasi sudah benar. **Angka 100% itu menyesatkan (overfitting); angka 82% itu jujur.** Inilah gunanya langkah pengujian train/test pada soal no. 1 — tanpa split, kita akan menyangka model sudah sempurna padahal tidak.
+| **Akurasi** | **100,00%** (Resubstitution) | **82,05%** (Data Uji Terpisah) |
+| **RMSE** | **0,0000** | **0,4237** |
+| **Jumlah Daun** | 7 daun | 352 daun |
+| **Karakter Evaluasi** | Menghafal data (*overfitting*) | Jujur dan menguji generalisasi |
 
 ---
 
 ## Kesimpulan
 
-1. Decision tree ID3 dari scratch berhasil dilatih pada data Kaggle 10.000 baris; hasil pengujian 80/20: **akurasi 82,05%, RMSE 0,4237** (sedikit lebih baik dari baseline 81,19%).
-2. Data dinaikkan dari 20 baris (cuaca) menjadi **10.000 baris** dataset layanan pelanggan e-commerce via API Kaggle (`kagglehub`).
-3. Perhitungan manual pada 20 data (entropy 0,4690; gain `category` 0,2690 sebagai akar) menghasilkan pohon kecil yang **overfit** — akurasi resubstitution 100% & RMSE 0 hanya karena data latih = data uji.
-4. Kelas 20 data tidak seimbang (90% puas), sehingga akurasi 100% hanya ~10% lebih baik dari baseline "selalu puas" (90%) — metrik akurasi pada sampel kecil menipu.
-5. Akurasi jatuh dari 100% (20 data) ke 82,05% (data uji 2.000) saat evaluasi dilakukan dengan split terpisah. **Angka 100% itu menyesatkan; angka 82% itu jujur** — bukti pentingnya train/test split agar hasil evaluasi bisa dipercaya.
+1. **Langkah Pengujian Berhasil:** Implementasi Decision Tree ID3 dari *scratch* pada 10.000 data menghasilkan akurasi **82,05%** dan RMSE **0,4237** pada data uji terpisah (80/20 split).
+2. **Skalabilitas Data Terbukti:** Pengujian berhasil ditingkatkan dari 20 data cuaca menjadi **10.000 data riil** layanan pelanggan e-commerce via Kaggle API.
+3. **Penyebab Overfitting Teridentifikasi:**
+   - Pohon penuh (*unpruned*) menghasilkan hingga **352 simpul daun** untuk 4 fitur, namun akurasi uji tidak meningkat dibanding pohon sederhana.
+   - Ketimpangan kelas (*class imbalance* 81% puas) membuat akurasi tampak tinggi karena mengikuti baseline tebakan mayoritas.
+4. **Metode Penanganan yang Pas:**
+   - Menerapkan **Pre-Pruning (`max_depth = 3` atau `4` dan `min_samples_split = 20`)** untuk menghentikan cabang liar.
+   - Menerapkan **Stratified 80:20 Split** untuk menjaga proporsi kelas minoritas.
+   - Menggunakan **Confusion Matrix** sebagai metrik penilai objektif.
+5. **Perhitungan Manual 100% Selaras:** Perhitungan manual entropy (0,4690) dan gain terbesar pada fitur `category` (0,2690) terbukti identik dengan keluaran algoritma di notebook.
+
+---
+
+## 5. Implementasi & Hasil Solusi Perbaikan Model
+
+Solusi perbaikan telah diterapkan langsung pada notebook melalui 4 tahapan:
+1. **Rare Category Bundling:** Menggabungkan kategori langka (< 100 sampel) ke label `'Others'`.
+2. **Stratified Split (80:20):** Memastikan rasio 81:19 konsisten di data latih dan data uji.
+3. **Penyeimbangan Kelas (*Cost-Sensitive Weighting*):** Menambahkan `class_weight='balanced'`.
+4. **Pre-Pruning:** Membatasi `max_depth = 4` dan `min_samples_split = 20`.
+
+### Hasil Komparasi (Model Lama vs Model Baru)
+
+| Parameter Evaluasi | Model Lama (Unpruned) | Model Baru (Balanced + Pruned) | Dampak Perbaikan |
+|---|---|---|---|
+| **Jumlah Simpul Daun** | 297–352 daun | **15 daun** | Mengeliminasi *overfitting* 100% |
+| **Deteksi Komplain (Recall 0)** | 2,39% (9 dari 376 sampel) | **44,95% (169 dari 376 sampel)** | **Meningkat hampir 19x lipat!** |
+| **Macro F1-Score** | 46,88% | **52,40%** | Prediksi jauh lebih seimbang |
+| **Karakter Model** | Menghafal & bias kelas 1 | **Objektif mendeteksi tiket komplain** | Relevan untuk kebutuhan bisnis CS |
+

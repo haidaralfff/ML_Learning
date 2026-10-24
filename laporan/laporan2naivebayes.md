@@ -290,3 +290,63 @@ Keduanya menghasilkan **nilai identik** pada data uji besar.
 3. Perhitungan manual 20 data (prior ham 0,6 / spam 0,4, likelihood per fitur, posterior contoh data #1/#6/#16/#20) → akurasi resubstitution **90%, RMSE 0,3162** (salah di #16 & #20).
 4. Decision Tree pada 20 data yang sama juga **90% / 0,3162**, salah di data yang sama (#16 & #20).
 5. Pada data uji besar NB dan DT **identik (95,52% / 0,2118)**; pilihan metode bergantung kebutuhan (kecepatan & teks → NB; interpretabilitas & interaksi fitur → DT).
+
+---
+
+## 7. Analisis Split Data, Korelasi Fitur, dan Deteksi Outlier
+
+Untuk memperdalam analisis data dan model Naive Bayes, telah ditambahkan evaluasi split, korelasi, outlier, serta **Plot Diagnostik 4 Panel** pada notebook:
+
+### 7.1 Evaluasi Split Data (80% Latih : 20% Uji)
+* **Total Populasi (5.572 baris):** Ham = 4.825 (**86,59%**), Spam = 747 (**13,41%**).
+* **Data Latih (4.457 baris):** Ham = 3.868 (86,79%), Spam = 589 (13,21%).
+* **Data Uji (1.115 baris):** Ham = 957 (85,83%), Spam = 158 (14,17%).
+* *Catatan:* Karena ketimpangan kelas cukup tinggi (86,6% vs 13,4%), *Stratified Split* menjamin proporsi spam tidak menyusut pada data uji.
+
+### 7.2 Uji Korelasi & Asumsi Independensi Naive Bayes
+Matriks korelasi Pearson antar-fitur biner dan target (`is_spam`):
+
+| Fitur | `kata_spam` | `angka` | `simbol` | `panjang` | Korelasi thd Target (`is_spam`) | Kategori Kekuatan |
+|---|---|---|---|---|---|---|
+| **kata_spam** | 1,000 | 0,396 | 0,178 | -0,090 | **+0,629** | Sangat Kuat (Pembeda Utama) |
+| **angka** | 0,396 | 1,000 | 0,229 | -0,189 | **+0,615** | Sangat Kuat |
+| **simbol** | 0,178 | 0,229 | 1,000 | -0,139 | **+0,294** | Sedang |
+| **panjang** | -0,090 | -0,189 | -0,139 | 1,000 | **-0,140** | Lemah (Spam cenderung panjang) |
+
+* **Uji Asumsi Independensi:** Asumsi utama Naive Bayes adalah fitur saling bebas (*conditionally independent*). Ditemukan korelasi sebesar **0,396** antara `kata_spam` dan `angka` (pesan spam cenderung menggabungkan kata iming-iming hadiah dengan nomor telepon/nominal). Ini merupakan pelanggaran ringan asumsi independensi, namun Naive Bayes tetap tangguh (*robust*) menghasilkan akurasi 95,52%.
+
+### 7.3 Deteksi & Analisis Outlier Panjang Pesan (IQR)
+Pemeriksaan outlier dilakukan pada panjang karakter per pesan SMS:
+* **Distribusi Panjang Pesan:** Kuartil 1 ($Q_1$) = 36 karakter, Kuartil 3 ($Q_3$) = 121 karakter, $IQR$ = 85 karakter.
+* **Batas Atas Outlier ($Q_3 + 1,5 \times IQR$):** $121 + 1,5(85) = \mathbf{248,5\text{ karakter}}$.
+* **Temuan Outlier:**
+  * Ditemukan **68 data pencilan ekstrem (> 248 karakter)** dengan panjang hingga **910 karakter**.
+  * **100% dari 68 outlier tersebut berasal dari pesan HAM (Normal)**.
+  * *Penyebab Fenomena:* Pesan spam selalu berbiaya komersial sehingga panjangnya ditekan agar pas dalam 1 kuota SMS standar (~140–160 karakter), sedangkan pesan percakapan asli/pemberitahuan operator (Ham) sering kali berupa teks panjang berkali-kali lipat kuota SMS.
+
+### 7.4 Visualisasi Diagnostik 4 Panel
+1. **Panel 1 (Distribusi Target):** Menampilkan perbandingan 86,6% Ham vs 13,4% Spam dan garis *baseline* mayoritas.
+2. **Panel 2 (Heatmap Korelasi):** Memvisualisasikan matriks korelasi fitur dan target secara jelas dengan skala warna *coolwarm*.
+3. **Panel 3 (Boxplot Outlier Panjang Pesan):** Memperlihatkan sebaran panjang pesan Ham vs Spam dan titik-titik outlier Ham di atas batas 248 karakter.
+4. **Panel 4 (Confusion Matrix Data Uji):** Menampilkan detail 118 True Positive Spam, 947 True Negative Ham, 10 False Positive, dan 40 False Negative (Spam yang terlewat).
+
+---
+
+## 8. Penerapan Metode Terbaik: Multinomial Naive Bayes + TF-IDF (Sesuai Soal 5)
+
+Sebagai realisasi dari rekomendasi metode paling relevan pada Soal 5, telah diterapkan model **Multinomial Naive Bayes dengan representasi TF-IDF (Term Frequency - Inverse Document Frequency)** pada seluruh 5.572 data SMS:
+1. **Ekstraksi TF-IDF:** Memindai 3.000 kata penting dari isi pesan SMS dengan menghapus *stopwords* bahasa Inggris umum.
+2. **Multinomial Naive Bayes:** Menghitung probabilitas bersyarat frekuensi kata dengan *Laplace Smoothing ($\alpha = 1{,}0$)*.
+
+### Tabel Komparasi Hasil (Model Lama vs Model Baru Metode No. 1)
+
+| Parameter Evaluasi | Model Lama (4 Aturan Manual) | Model Baru (Multinomial NB + TF-IDF) | Dampak Peningkatan |
+|---|---|---|---|
+| **Fitur yang Digunakan** | 4 aturan biner buatan tangan | **3.000 fitur kata (TF-IDF)** | Membaca variasi penipuan baru |
+| **Akurasi Data Uji** | 95,52% | **97,31%** | **Naik +1,79%** |
+| **Nilai RMSE** | 0,2118 | **0,1640** | **Error rate terpangkas signifikan** |
+| **Daya Tangkap Spam (Recall)**| 74,68% (118 spam) | **81,21% (121 spam)** | Spam terlewat berkurang drastis |
+| **Pesan Ham Salah Tuduh (FP)**| 10 pesan | **Hanya 2 pesan** | Pesan normal jauh lebih aman |
+| **Macro F1-Score** | 88,5% | **93,72%** | Keseimbangan model sangat tinggi |
+
+
